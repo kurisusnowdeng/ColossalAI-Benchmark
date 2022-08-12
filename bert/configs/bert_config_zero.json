@@ -1,0 +1,30 @@
+{
+    "model": {
+        "type": "bert_oppo"
+    },
+    "hyperparameter": {
+        "batch_size": 20
+        "global_batch_size": 4100,
+        "learning_rate": 0.0001,
+        "min_lr": 0.00001,
+        "num_epochs": 2,
+        "steps_per_epoch": 20,
+        "warmup_steps": 20
+    },
+    "zero": {
+        "model_config": {
+            "tensor_placement_policy": "cuda"
+        },
+        "optimizer_config": {
+            "initial_scale": 1.0
+        }
+    },
+    "gradient_checkpoint": false,
+    "clip_grad_norm": 1.0,
+    "parallel": {
+        "tensor": {
+            "mode": "1d",
+            "size": 2
+        }
+    }
+}

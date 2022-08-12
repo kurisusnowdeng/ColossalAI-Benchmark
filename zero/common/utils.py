@@ -13,6 +13,7 @@ CONFIG = dict()
 def load_config():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str)
+    parser.add_argument('--use-mpi', action="store_true")
     args = parser.parse_args()
 
     config_file = args.config
@@ -23,11 +24,14 @@ def load_config():
         cfg = json.load(f)
         for k, v in cfg.items():
             CONFIG[k] = v
+    
+    if args.use_mpi:
+        CONFIG['use_mpi'] = True
 
 
 class AsyncMemoryMonitor:
 
-    def __init__(self, rank, power=3, save_to_disk=True):
+    def __init__(self, power=3, save_to_disk=True):
         """
         Adapted from https://github.com/Tencent/PatrickStar/blob/master/patrickstar/core/memtracer/memtracer.py.
         An Async Mem Monitor runing during computing.
@@ -35,19 +39,19 @@ class AsyncMemoryMonitor:
         at interval of 1/(10**power) sec.
         """
         self.keep_measuring = False
-        device = torch.cuda.current_device()
-        self.executor = ThreadPoolExecutor(max_workers=1, initializer=lambda: torch.cuda.set_device(device))
+        self.device = torch.cuda.current_device()
+        self.executor = ThreadPoolExecutor(max_workers=1, initializer=lambda: torch.cuda.set_device(self.device))
         self.monitor_thread = None
         self.interval = 1 / (10**power)
-        self.rank = rank
-        self.file = os.path.join(CONFIG['log_path'], f'memory_rank_{rank}.log') if save_to_disk else None
+        # self.rank = rank
+        # self.file = os.path.join(CONFIG['log_path'], f'memory_rank_{rank}.log') if save_to_disk else None
 
     def set_interval(self, power: int):
         self.interval = 1 / (10**power)
 
     def start(self):
         self.keep_measuring = True
-        torch.cuda.reset_peak_memory_stats(self.rank)
+        torch.cuda.reset_peak_memory_stats(self.device)
         self.monitor_thread = self.executor.submit(self._measure_usage)
 
     def finish(self):
@@ -56,16 +60,16 @@ class AsyncMemoryMonitor:
         self.keep_measuring = False
         gpu_usage = self.monitor_thread.result()
         self.monitor_thread = None
-        if self.file is not None:
-            with open(self.file, 'a') as f:
-                f.writelines(list(map(lambda x: str(x) + '\n', gpu_usage)))
+        # if self.file is not None:
+        #     with open(self.file, 'a') as f:
+        #         f.writelines(list(map(lambda x: str(x) + '\n', gpu_usage)))
         return gpu_usage
 
     def _measure_usage(self):
         gpu_usage = list()
         while self.keep_measuring:
-            gpu_usage.append(torch.cuda.max_memory_allocated(self.rank) / (1024 * 1024))  # MB
-            torch.cuda.reset_peak_memory_stats(self.rank)
+            gpu_usage.append(torch.cuda.max_memory_allocated(self.device) / (1024 * 1024))  # MB
+            torch.cuda.reset_peak_memory_stats(self.device)
             time.sleep(self.interval)
 
         return gpu_usage
@@ -74,9 +78,9 @@ class AsyncMemoryMonitor:
 def print_log(msg):
     msg = f'{time.asctime()} > {msg}'
     rank = get_rank() if is_initialized() else 0
-    log_file = os.path.join(CONFIG['log_path'], f'training_rank_{rank}.log')
-    with open(log_file, 'a') as f:
-        f.write(msg + '\n')
+    # log_file = os.path.join(CONFIG['log_path'], f'training_rank_{rank}.log')
+    # with open(log_file, 'a') as f:
+    #     f.write(msg + '\n')
     if rank == 0:
         print(msg)
 
