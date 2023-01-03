@@ -18,7 +18,7 @@ from torch.cuda import reset_peak_memory_stats
 from torch.optim.lr_scheduler import LambdaLR
 from transformers import BertConfig, BertTokenizer, DataCollatorForLanguageModeling
 
-from model import ColoBertForMaskedLM, ColoBertMaskedLMLoss, bias_dropout_add, bias_gelu
+from model import BertForMaskedLM, BertMaskedLMLoss, bias_dropout_add, bias_gelu
 from utils import ModelFromHF, get_args, get_config, get_model_size, print_log
 
 _bert_base = dict(
@@ -34,7 +34,7 @@ _bert_large = dict(
     hidden_size=1024,
     num_heads=16,
     depth=24,
-    ff_size=3072,
+    ff_size=4096,
 )
 
 _bert_oppo = dict(
@@ -47,10 +47,10 @@ _bert_oppo = dict(
 
 _bert_oppo_10b = dict(
     seq_length=512,
-    hidden_size=4600,
-    num_heads=40,
-    depth=38,
-    ff_size=18400,
+    hidden_size=4096,
+    num_heads=32,
+    depth=50,
+    ff_size=16384,
 )
 
 _bert_24b = dict(
@@ -175,14 +175,13 @@ def build_model():
         # use_cache=not config['model'].get('checkpoint', False),
     )
     if 'zero' in config:
-        with ZeroInitContext(target_device=get_current_device(), shard_strategy=TensorShardStrategy(),
-                             shard_param=True):
-            model = ModelFromHF(bert_cfg, ColoBertForMaskedLM)
+        with ZeroInitContext(target_device=get_current_device(), shard_strategy=TensorShardStrategy(), shard_param=True):
+            model = ModelFromHF(bert_cfg, BertForMaskedLM)
             if 'numel' not in config['model']:
                 config['model']['numel'] = get_model_size(model)
 
     else:
-        model = ModelFromHF(bert_cfg, ColoBertForMaskedLM)
+        model = ModelFromHF(bert_cfg, BertForMaskedLM)
         if 'numel' not in config['model']:
             config['model']['numel'] = get_model_size(model)
 
@@ -197,7 +196,7 @@ def build_model():
 
 
 def build_loss():
-    return ColoBertMaskedLMLoss()
+    return BertMaskedLMLoss()
 
 
 def build_optimizer(model):
@@ -322,8 +321,8 @@ def init_w_col():
 
     lr_scheduler = build_scheduler(train_data, optimizer)
 
-    engine, train_data, test_data, lr_scheduler = colossalai.initialize(model, optimizer, criterion, train_data,
-                                                                        test_data, lr_scheduler)
+    engine, train_data, test_data, lr_scheduler = colossalai.initialize(model, optimizer, criterion, train_data, test_data,
+                                                                        lr_scheduler)
     model = engine.model
     criterion = engine.criterion
     optimizer = engine.optimizer

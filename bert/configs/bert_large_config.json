@@ -1,14 +1,11 @@
 {
     "model": {
-        "type": "bert_oppo_10b",
-        "hidden_size": 4800,
-        "ff_size": 19200,
-        "num_heads": 40,
-        "flash_attention": true
+        "type": "bert_large",
+        "flash_attention": false
     },
     "hyperparameter": {
-        "batch_size": 20,
-        "global_batch_size": 640,
+        "batch_size": 8,
+        "global_batch_size": 1024,
         "learning_rate": 0.0001,
         "min_lr": 0.00001,
         "num_epochs": 2,
@@ -20,10 +17,5 @@
     },
     "gradient_checkpoint": false,
     "clip_grad_norm": 1.0,
-    "parallel": {
-        "tensor": {
-            "mode": "1d",
-            "size": 8
-        }
-    }
+    "parallel": {}
 }
